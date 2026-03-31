@@ -80,6 +80,10 @@ const Dashboard = () => {
     }
   };
 
+  const handleUpdate = (updated: Transaction) => {
+    setTransactions(transactions.map(t => t.id === updated.id ? updated : t));
+  };
+
   const processInput = async (text: string) => {
     if (!profile || !text.trim()) return;
 
@@ -255,7 +259,12 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <TransactionTable transactions={transactions} onDelete={handleDelete} businessName={profile?.business_name || "My Business"} />
+        <TransactionTable 
+          transactions={transactions} 
+          onDelete={handleDelete} 
+          onUpdate={handleUpdate}
+          businessName={profile?.business_name || "My Business"} 
+        />
       </main>
     </div>
   );

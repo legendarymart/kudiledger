@@ -1,21 +1,24 @@
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, FileDown, Filter, Search } from "lucide-react";
+import { Trash2, FileDown, Filter, Search, Edit2, ReceiptText } from "lucide-react";
 import { Transaction } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
+import { EditTransactionDialog } from "./EditTransactionDialog";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 interface Props {
   transactions: Transaction[];
   onDelete: (id: string) => void;
+  onUpdate: (updated: Transaction) => void;
   businessName?: string;
 }
 
-export const TransactionTable = ({ transactions, onDelete, businessName }: Props) => {
+export const TransactionTable = ({ transactions, onDelete, onUpdate, businessName }: Props) => {
   const [filter, setFilter] = useState<'all' | 'sale' | 'expense'>('all');
   const [search, setSearch] = useState("");
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const filteredTransactions = transactions.filter(t => {
     const matchesFilter = filter === 'all' || t.type === filter;
@@ -23,13 +26,12 @@ export const TransactionTable = ({ transactions, onDelete, businessName }: Props
     return matchesFilter && matchesSearch;
   });
 
-  const exportPDF = () => {
+  const exportFullReport = () => {
     const doc = new jsPDF();
     const date = new Date().toLocaleDateString();
     
-    // Header
     doc.setFontSize(20);
-    doc.setTextColor(22, 163, 74); // Green-600
+    doc.setTextColor(22, 163, 74);
     doc.text("KudiLedger Business Report", 14, 20);
     
     doc.setFontSize(12);
@@ -50,10 +52,45 @@ export const TransactionTable = ({ transactions, onDelete, businessName }: Props
       body: tableData,
       startY: 45,
       headStyles: { fillColor: [22, 163, 74] },
-      alternateRowStyles: { fillColor: [240, 253, 244] },
     });
 
-    doc.save(`kudiledger-report-${date}.pdf`);
+    doc.save(`report-${date}.pdf`);
+  };
+
+  const generateReceipt = (t: Transaction) => {
+    const doc = new jsPDF({
+      unit: "mm",
+      format: [80, 150] // Thermal printer style
+    });
+
+    doc.setFontSize(16);
+    doc.setTextColor(22, 163, 74);
+    doc.text(businessName || "KudiLedger Business", 40, 15, { align: "center" });
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("SALES RECEIPT", 40, 22, { align: "center" });
+    doc.line(5, 25, 75, 25);
+
+    doc.setTextColor(0);
+    doc.text(`Date: ${new Date(t.created_at).toLocaleDateString()}`, 5, 32);
+    doc.text(`Receipt #: ${t.id.slice(0, 8).toUpperCase()}`, 5, 37);
+
+    doc.setFontSize(12);
+    doc.text("Item Details:", 5, 47);
+    doc.setFontSize(10);
+    doc.text(`${t.item} x ${t.qty}`, 5, 54);
+    
+    doc.line(5, 60, 75, 60);
+    doc.setFontSize(14);
+    doc.text(`TOTAL: ₦${t.total.toLocaleString()}`, 40, 70, { align: "center" });
+    
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("Thank you for your business!", 40, 85, { align: "center" });
+    doc.text("Powered by KudiLedger", 40, 90, { align: "center" });
+
+    doc.save(`receipt-${t.id.slice(0, 8)}.pdf`);
   };
 
   return (
@@ -67,10 +104,10 @@ export const TransactionTable = ({ transactions, onDelete, businessName }: Props
               placeholder="Search items..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white"
+              className="pl-9 bg-white rounded-xl"
             />
           </div>
-          <Button variant="outline" onClick={exportPDF} className="flex items-center gap-2 bg-white">
+          <Button variant="outline" onClick={exportFullReport} className="flex items-center gap-2 bg-white rounded-xl">
             <FileDown className="h-4 w-4" /> Export PDF
           </Button>
         </div>
@@ -101,17 +138,14 @@ export const TransactionTable = ({ transactions, onDelete, businessName }: Props
               <TableHead className="font-bold">Qty</TableHead>
               <TableHead className="font-bold">Total</TableHead>
               <TableHead className="font-bold">Type</TableHead>
-              <TableHead className="text-right font-bold">Action</TableHead>
+              <TableHead className="text-right font-bold">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTransactions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2">
-                    <Filter className="h-8 w-8 opacity-20" />
-                    <p>No transactions found matching your criteria.</p>
-                  </div>
+                  No transactions found.
                 </TableCell>
               </TableRow>
             ) : (
@@ -120,7 +154,7 @@ export const TransactionTable = ({ transactions, onDelete, businessName }: Props
                   <TableCell className="font-medium py-4">
                     <div>
                       <p className="text-gray-900">{t.item}</p>
-                      <p className="text-xs text-gray-400">{new Date(t.created_at).toLocaleDateString()}</p>
+                      <p className="text-[10px] text-gray-400">{new Date(t.created_at).toLocaleString()}</p>
                     </div>
                   </TableCell>
                   <TableCell>{t.qty}</TableCell>
@@ -135,14 +169,37 @@ export const TransactionTable = ({ transactions, onDelete, businessName }: Props
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => onDelete(t.id)} 
-                      className="text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-full"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      {t.type === 'sale' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => generateReceipt(t)} 
+                          className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-full"
+                          title="Download Receipt"
+                        >
+                          <ReceiptText className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setEditingTransaction(t)} 
+                        className="text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-full"
+                        title="Edit"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => onDelete(t.id)} 
+                        className="text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-full"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -150,6 +207,13 @@ export const TransactionTable = ({ transactions, onDelete, businessName }: Props
           </TableBody>
         </Table>
       </div>
+
+      <EditTransactionDialog 
+        transaction={editingTransaction}
+        open={!!editingTransaction}
+        onOpenChange={(open) => !open && setEditingTransaction(null)}
+        onUpdate={onUpdate}
+      />
     </div>
   );
 };
