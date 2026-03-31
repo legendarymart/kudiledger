@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { supabase, Transaction, Profile } from "@/lib/supabase";
 import { StatsCards } from "@/components/StatsCards";
 import { TransactionTable } from "@/components/TransactionTable";
+import { BusinessCharts } from "@/components/BusinessCharts";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { processBusinessMessage, transcribeAudio } from "@/lib/ai-service";
 import { initializePayment } from "@/lib/paystack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Send, Loader2, LogOut, Mic, MicOff, AlertCircle, CreditCard } from "lucide-react";
+import { MessageSquare, Send, Loader2, LogOut, Mic, MicOff, AlertCircle, CreditCard, LayoutDashboard } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -81,7 +83,6 @@ const Dashboard = () => {
   const processInput = async (text: string) => {
     if (!profile || !text.trim()) return;
 
-    // Gatekeeper Logic
     if (!profile.is_subscribed && profile.trial_count >= 10) {
       showError("Trial limit reached. Please subscribe to continue.");
       return;
@@ -106,7 +107,6 @@ const Dashboard = () => {
 
         if (error) throw error;
 
-        // Increment trial count
         await supabase.from('profiles').update({ trial_count: profile.trial_count + 1 }).eq('id', profile.id);
         
         setTransactions([data, ...transactions]);
@@ -175,17 +175,23 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b p-4 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-green-700">KudiLedger</h1>
-            <p className="text-xs text-gray-500">{profile?.business_name || "My Business"}</p>
+          <div className="flex items-center gap-3">
+            <div className="bg-green-600 p-1.5 rounded-lg">
+              <LayoutDashboard className="text-white h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">KudiLedger</h1>
+              <p className="text-xs text-gray-500 font-medium">{profile?.business_name || "My Business"}</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {!profile?.is_subscribed && (
-              <Button variant="outline" size="sm" onClick={handleSubscribe} className="text-green-600 border-green-600 hidden sm:flex">
+              <Button variant="outline" size="sm" onClick={handleSubscribe} className="text-green-600 border-green-600 hidden sm:flex rounded-full">
                 <CreditCard className="h-4 w-4 mr-2" /> Upgrade
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <SettingsDialog profile={profile} onUpdate={(name) => setProfile(prev => prev ? {...prev, business_name: name} : null)} />
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full">
               <LogOut className="h-5 w-5 text-gray-500" />
             </Button>
           </div>
@@ -194,56 +200,62 @@ const Dashboard = () => {
 
       <main className="max-w-4xl mx-auto p-4 space-y-6">
         {!profile?.is_subscribed && profile?.trial_count !== undefined && profile.trial_count >= 7 && (
-          <Alert className="bg-amber-50 border-amber-200">
+          <Alert className="bg-amber-50 border-amber-200 rounded-2xl">
             <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle>Trial Ending Soon</AlertTitle>
+            <AlertTitle className="font-bold">Trial Ending Soon</AlertTitle>
             <AlertDescription>
               You have used {profile.trial_count}/10 free records. 
-              <button onClick={handleSubscribe} className="ml-2 font-bold underline">Subscribe now</button> to keep using KudiLedger.
+              <button onClick={handleSubscribe} className="ml-2 font-bold underline text-amber-700">Subscribe now</button> to keep using KudiLedger.
             </AlertDescription>
           </Alert>
         )}
 
         <StatsCards sales={totalSales} expenses={totalExpenses} />
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-green-700 font-semibold">
-              <MessageSquare className="h-5 w-5" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <BusinessCharts transactions={transactions} />
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 flex flex-col justify-center space-y-4">
+            <div className="flex items-center gap-3 text-green-700 font-bold text-lg">
+              <MessageSquare className="h-6 w-6" />
               <span>WhatsApp Simulator</span>
             </div>
-            {isRecording && <span className="text-xs text-red-500 animate-pulse font-bold">Recording...</span>}
-          </div>
-          
-          <div className="flex gap-2">
-            <Input 
-              placeholder="Type or use mic..." 
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && processInput(message)}
-              disabled={processing}
-              className="bg-gray-50 border-green-200 focus-visible:ring-green-500"
-            />
-            <Button 
-              variant={isRecording ? "destructive" : "outline"}
-              size="icon"
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={processing}
-              className={!isRecording ? "border-green-200 text-green-600" : ""}
-            >
-              {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </Button>
-            <Button 
-              onClick={() => processInput(message)} 
-              disabled={processing || !message.trim()}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Record sales or expenses by typing or using your voice. Our AI handles the rest.
+            </p>
+            <div className="space-y-3">
+              <Input 
+                placeholder="Type or use mic..." 
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && processInput(message)}
+                disabled={processing}
+                className="bg-gray-50 border-green-100 focus-visible:ring-green-500 rounded-xl h-12"
+              />
+              <div className="flex gap-2">
+                <Button 
+                  variant={isRecording ? "destructive" : "outline"}
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={processing}
+                  className={`flex-1 h-12 rounded-xl ${!isRecording ? "border-green-200 text-green-600" : ""}`}
+                >
+                  {isRecording ? <MicOff className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+                  {isRecording ? "Stop" : "Voice Note"}
+                </Button>
+                <Button 
+                  onClick={() => processInput(message)} 
+                  disabled={processing || !message.trim()}
+                  className="bg-green-600 hover:bg-green-700 h-12 px-6 rounded-xl"
+                >
+                  {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <TransactionTable transactions={transactions} onDelete={handleDelete} />
+        <TransactionTable transactions={transactions} onDelete={handleDelete} businessName={profile?.business_name || "My Business"} />
       </main>
     </div>
   );
