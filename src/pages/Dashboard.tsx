@@ -1,29 +1,27 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase, Transaction, Profile } from "@/lib/supabase";
 import { StatsCards } from "@/components/StatsCards";
 import { TransactionTable } from "@/components/TransactionTable";
 import { BusinessCharts } from "@/components/BusinessCharts";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { processBusinessMessage, transcribeAudio } from "@/lib/ai-service";
+import { WhatsAppSimulator } from "@/components/WhatsAppSimulator";
+import { EmptyState } from "@/components/EmptyState";
+import { processBusinessMessage } from "@/lib/ai-service";
 import { initializePayment } from "@/lib/paystack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { MessageSquare, Send, Loader2, LogOut, Mic, MicOff, AlertCircle, CreditCard, LayoutDashboard } from "lucide-react";
+import { Loader2, LogOut, AlertCircle, CreditCard, LayoutDashboard, TrendingUp } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Dashboard = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [message, setMessage] = useState("");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const mediaRecorder = useRef<MediaRecorder | null>(null);
-  const audioChunks = useRef<Blob[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -52,9 +50,8 @@ const Dashboard = () => {
   const handlePaymentSuccess = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     await supabase.from('profiles').update({ is_subscribed: true }).eq('id', user.id);
-    showSuccess("Subscription activated! Thank you for your support.");
+    showSuccess("Subscription activated!");
     fetchData();
   };
 
@@ -62,21 +59,51 @@ const Dashboard = () => {
     if (!profile) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const url = await initializePayment(user?.email || "", 5000); // 5000 Naira
+      const url = await initializePayment(user?.email || "", 5000);
       window.location.href = url;
     } catch (err) {
       showError("Failed to initialize payment.");
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleProcessMessage = async (text: string) => {
+    if (!profile) return;
+    if (!profile.is_subscribed && profile.trial_count >= 10) {
+      showError("Trial limit reached. Please subscribe.");
+      return;
+    }
+
+    setProcessing(true);
     try {
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
-      if (error) throw error;
-      setTransactions(transactions.filter(t => t.id !== id));
-      showSuccess("Transaction deleted successfully.");
+      const extracted = await processBusinessMessage(text);
+      if (extracted.type === 'profile_update') {
+        await supabase.from('profiles').update({ business_name: extracted.business_name }).eq('id', profile.id);
+        setProfile({ ...profile, business_name: extracted.business_name });
+        showSuccess(`Business name updated!`);
+      } else {
+        const { data, error } = await supabase.from('transactions').insert([{
+          user_id: profile.id,
+          ...extracted,
+          created_at: new Date().toISOString()
+        }]).select().single();
+        if (error) throw error;
+        await supabase.from('profiles').update({ trial_count: profile.trial_count + 1 }).eq('id', profile.id);
+        setTransactions([data, ...transactions]);
+        setProfile({ ...profile, trial_count: profile.trial_count + 1 });
+        showSuccess(`✅ Recorded: ${extracted.item}`);
+      }
     } catch (err) {
-      showError("Failed to delete transaction.");
+      showError("Failed to process message.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (!error) {
+      setTransactions(transactions.filter(t => t.id !== id));
+      showSuccess("Deleted.");
     }
   };
 
@@ -84,187 +111,107 @@ const Dashboard = () => {
     setTransactions(transactions.map(t => t.id === updated.id ? updated : t));
   };
 
-  const processInput = async (text: string) => {
-    if (!profile || !text.trim()) return;
-
-    if (!profile.is_subscribed && profile.trial_count >= 10) {
-      showError("Trial limit reached. Please subscribe to continue.");
-      return;
-    }
-
-    setProcessing(true);
-    try {
-      const extracted = await processBusinessMessage(text);
-      
-      if (extracted.type === 'profile_update') {
-        const { error } = await supabase.from('profiles').update({ business_name: extracted.business_name }).eq('id', profile.id);
-        if (!error) {
-          setProfile({ ...profile, business_name: extracted.business_name });
-          showSuccess(`Business name updated to: ${extracted.business_name}`);
-        }
-      } else {
-        const { data, error } = await supabase.from('transactions').insert([{
-          user_id: profile.id,
-          ...extracted,
-          created_at: new Date().toISOString()
-        }]).select().single();
-
-        if (error) throw error;
-
-        await supabase.from('profiles').update({ trial_count: profile.trial_count + 1 }).eq('id', profile.id);
-        
-        setTransactions([data, ...transactions]);
-        setProfile({ ...profile, trial_count: profile.trial_count + 1 });
-        showSuccess(`✅ Recorded: ${extracted.type === 'sale' ? 'Sold' : 'Bought'} ${extracted.qty} ${extracted.item} for ₦${extracted.total.toLocaleString()}`);
-      }
-      setMessage("");
-    } catch (err) {
-      showError("Failed to process message. Try again.");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder.current = new MediaRecorder(stream);
-      audioChunks.current = [];
-
-      mediaRecorder.current.ondataavailable = (event) => {
-        audioChunks.current.push(event.data);
-      };
-
-      mediaRecorder.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
-        const audioFile = new File([audioBlob], "recording.wav", { type: 'audio/wav' });
-        
-        setProcessing(true);
-        try {
-          const text = await transcribeAudio(audioFile);
-          setMessage(text);
-          await processInput(text);
-        } catch (err) {
-          showError("Failed to transcribe audio.");
-        } finally {
-          setProcessing(false);
-        }
-      };
-
-      mediaRecorder.current.start();
-      setIsRecording(true);
-    } catch (err) {
-      showError("Microphone access denied.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder.current) {
-      mediaRecorder.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
-  };
-
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-green-600" /></div>;
 
   const totalSales = transactions.filter(t => t.type === 'sale').reduce((acc, curr) => acc + curr.total, 0);
   const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.total, 0);
 
+  // Calculate top items
+  const topItems = Object.entries(
+    transactions
+      .filter(t => t.type === 'sale')
+      .reduce((acc: any, t) => {
+        acc[t.item] = (acc[t.item] || 0) + t.total;
+        return acc;
+      }, {})
+  )
+    .sort(([, a]: any, [, b]: any) => b - a)
+    .slice(0, 3);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white border-b p-4 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-green-600 p-1.5 rounded-lg">
+            <div className="bg-green-600 p-2 rounded-xl shadow-lg shadow-green-100">
               <LayoutDashboard className="text-white h-5 w-5" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">KudiLedger</h1>
-              <p className="text-xs text-gray-500 font-medium">{profile?.business_name || "My Business"}</p>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">{profile?.business_name || "My Business"}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {!profile?.is_subscribed && (
-              <Button variant="outline" size="sm" onClick={handleSubscribe} className="text-green-600 border-green-600 hidden sm:flex rounded-full">
+              <Button variant="outline" size="sm" onClick={handleSubscribe} className="text-green-600 border-green-600 hidden sm:flex rounded-full font-bold">
                 <CreditCard className="h-4 w-4 mr-2" /> Upgrade
               </Button>
             )}
             <SettingsDialog profile={profile} onUpdate={(name) => setProfile(prev => prev ? {...prev, business_name: name} : null)} />
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full">
+            <Button variant="ghost" size="icon" onClick={() => supabase.auth.signOut().then(() => navigate("/auth"))} className="rounded-full">
               <LogOut className="h-5 w-5 text-gray-500" />
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 space-y-6">
+      <main className="max-w-5xl mx-auto p-4 space-y-8">
         {!profile?.is_subscribed && profile?.trial_count !== undefined && profile.trial_count >= 7 && (
-          <Alert className="bg-amber-50 border-amber-200 rounded-2xl">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="font-bold">Trial Ending Soon</AlertTitle>
-            <AlertDescription>
-              You have used {profile.trial_count}/10 free records. 
-              <button onClick={handleSubscribe} className="ml-2 font-bold underline text-amber-700">Subscribe now</button> to keep using KudiLedger.
-            </AlertDescription>
+          <Alert className="bg-amber-50 border-amber-200 rounded-[2rem] p-6">
+            <AlertCircle className="h-5 w-5 text-amber-600" />
+            <div className="ml-4">
+              <AlertTitle className="font-bold text-amber-900">Trial Ending Soon</AlertTitle>
+              <AlertDescription className="text-amber-800">
+                You have used {profile.trial_count}/10 free records. 
+                <button onClick={handleSubscribe} className="ml-2 font-bold underline">Subscribe now</button> to keep growing.
+              </AlertDescription>
+            </div>
           </Alert>
         )}
 
         <StatsCards sales={totalSales} expenses={totalExpenses} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
             <BusinessCharts transactions={transactions} />
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-green-100 flex flex-col justify-center space-y-4">
-            <div className="flex items-center gap-3 text-green-700 font-bold text-lg">
-              <MessageSquare className="h-6 w-6" />
-              <span>WhatsApp Simulator</span>
-            </div>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Record sales or expenses by typing or using your voice. Our AI handles the rest.
-            </p>
-            <div className="space-y-3">
-              <Input 
-                placeholder="Type or use mic..." 
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && processInput(message)}
-                disabled={processing}
-                className="bg-gray-50 border-green-100 focus-visible:ring-green-500 rounded-xl h-12"
+            {transactions.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <TransactionTable 
+                transactions={transactions} 
+                onDelete={handleDelete} 
+                onUpdate={handleUpdate}
+                businessName={profile?.business_name || "My Business"} 
               />
-              <div className="flex gap-2">
-                <Button 
-                  variant={isRecording ? "destructive" : "outline"}
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={processing}
-                  className={`flex-1 h-12 rounded-xl ${!isRecording ? "border-green-200 text-green-600" : ""}`}
-                >
-                  {isRecording ? <MicOff className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-                  {isRecording ? "Stop" : "Voice Note"}
-                </Button>
-                <Button 
-                  onClick={() => processInput(message)} 
-                  disabled={processing || !message.trim()}
-                  className="bg-green-600 hover:bg-green-700 h-12 px-6 rounded-xl"
-                >
-                  {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+            )}
+          </div>
+          
+          <div className="space-y-8">
+            <WhatsAppSimulator 
+              onProcess={handleProcessMessage} 
+              processing={processing} 
+              disabled={!profile?.is_subscribed && (profile?.trial_count || 0) >= 10}
+            />
+            
+            {topItems.length > 0 && (
+              <Card className="border-none shadow-sm bg-white rounded-[2rem] overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" /> Top Selling Items
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {topItems.map(([item, total]: any, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
+                      <span className="font-medium text-gray-700">{item}</span>
+                      <span className="font-bold text-green-600">₦{total.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
-
-        <TransactionTable 
-          transactions={transactions} 
-          onDelete={handleDelete} 
-          onUpdate={handleUpdate}
-          businessName={profile?.business_name || "My Business"} 
-        />
       </main>
     </div>
   );
