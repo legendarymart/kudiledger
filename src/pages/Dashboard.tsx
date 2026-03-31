@@ -67,8 +67,19 @@ const Dashboard = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      if (error) throw error;
+      setTransactions(transactions.filter(t => t.id !== id));
+      showSuccess("Transaction deleted successfully.");
+    } catch (err) {
+      showError("Failed to delete transaction.");
+    }
+  };
+
   const processInput = async (text: string) => {
-    if (!profile) return;
+    if (!profile || !text.trim()) return;
 
     // Gatekeeper Logic
     if (!profile.is_subscribed && profile.trial_count >= 10) {
@@ -96,7 +107,7 @@ const Dashboard = () => {
         if (error) throw error;
 
         // Increment trial count
-        await supabase.rpc('increment_trial', { user_id_input: profile.id });
+        await supabase.from('profiles').update({ trial_count: profile.trial_count + 1 }).eq('id', profile.id);
         
         setTransactions([data, ...transactions]);
         setProfile({ ...profile, trial_count: profile.trial_count + 1 });
@@ -182,7 +193,7 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-4xl mx-auto p-4 space-y-6">
-        {!profile?.is_subscribed && profile?.trial_count && profile.trial_count >= 7 && (
+        {!profile?.is_subscribed && profile?.trial_count !== undefined && profile.trial_count >= 7 && (
           <Alert className="bg-amber-50 border-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertTitle>Trial Ending Soon</AlertTitle>
@@ -195,7 +206,6 @@ const Dashboard = () => {
 
         <StatsCards sales={totalSales} expenses={totalExpenses} />
 
-        {/* WhatsApp Simulator */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-green-700 font-semibold">
@@ -225,7 +235,7 @@ const Dashboard = () => {
             </Button>
             <Button 
               onClick={() => processInput(message)} 
-              disabled={processing || !message}
+              disabled={processing || !message.trim()}
               className="bg-green-600 hover:bg-green-700"
             >
               {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
