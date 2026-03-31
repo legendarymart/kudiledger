@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, FileDown, Filter, Search, Edit2, ReceiptText } from "lucide-react";
+import { Trash2, FileDown, Search, Edit2, ReceiptText, Plus } from "lucide-react";
 import { Transaction } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { EditTransactionDialog } from "./EditTransactionDialog";
-import jsPDF from "jspdf";
+import jsPDF from "jsPDF";
 import "jspdf-autotable";
 
 interface Props {
   transactions: Transaction[];
   onDelete: (id: string) => void;
   onUpdate: (updated: Transaction) => void;
+  onAddManual?: () => void;
   businessName?: string;
 }
 
-export const TransactionTable = ({ transactions, onDelete, onUpdate, businessName }: Props) => {
+export const TransactionTable = ({ transactions, onDelete, onUpdate, onAddManual, businessName }: Props) => {
   const [filter, setFilter] = useState<'all' | 'sale' | 'expense'>('all');
   const [search, setSearch] = useState("");
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -60,7 +61,7 @@ export const TransactionTable = ({ transactions, onDelete, onUpdate, businessNam
   const generateReceipt = (t: Transaction) => {
     const doc = new jsPDF({
       unit: "mm",
-      format: [80, 150] // Thermal printer style
+      format: [80, 150]
     });
 
     doc.setFontSize(16);
@@ -109,6 +110,9 @@ export const TransactionTable = ({ transactions, onDelete, onUpdate, businessNam
           </div>
           <Button variant="outline" onClick={exportFullReport} className="flex items-center gap-2 bg-white rounded-xl">
             <FileDown className="h-4 w-4" /> Export PDF
+          </Button>
+          <Button onClick={onAddManual} className="bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Add New
           </Button>
         </div>
       </div>

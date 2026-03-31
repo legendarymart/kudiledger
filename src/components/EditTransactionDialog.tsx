@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,14 @@ interface Props {
 
 export const EditTransactionDialog = ({ transaction, open, onOpenChange, onUpdate }: Props) => {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<Partial<Transaction>>(transaction || {});
+  const [formData, setFormData] = useState<Partial<Transaction>>({});
 
-  // Update local state when transaction prop changes
-  useState(() => {
-    if (transaction) setFormData(transaction);
-  });
+  // Sync state when the transaction prop changes or dialog opens
+  useEffect(() => {
+    if (transaction && open) {
+      setFormData(transaction);
+    }
+  }, [transaction, open]);
 
   const handleSave = async () => {
     if (!transaction) return;
@@ -51,8 +53,6 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onUpdat
     }
   };
 
-  if (!transaction) return null;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] rounded-3xl">
@@ -66,6 +66,7 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onUpdat
               value={formData.item || ""} 
               onChange={(e) => setFormData({...formData, item: e.target.value})}
               className="rounded-xl"
+              placeholder="e.g. Bag of Rice"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">

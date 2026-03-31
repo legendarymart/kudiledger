@@ -6,6 +6,7 @@ import { BusinessCharts } from "@/components/BusinessCharts";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { WhatsAppSimulator } from "@/components/WhatsAppSimulator";
 import { EmptyState } from "@/components/EmptyState";
+import { EditTransactionDialog } from "@/components/EditTransactionDialog";
 import { processBusinessMessage } from "@/lib/ai-service";
 import { initializePayment } from "@/lib/paystack";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [isManualAddOpen, setIsManualAddOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -111,12 +113,16 @@ const Dashboard = () => {
     setTransactions(transactions.map(t => t.id === updated.id ? updated : t));
   };
 
+  const handleManualAdd = (newTransaction: Transaction) => {
+    setTransactions([newTransaction, ...transactions]);
+    if (profile) setProfile({ ...profile, trial_count: profile.trial_count + 1 });
+  };
+
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-green-600" /></div>;
 
   const totalSales = transactions.filter(t => t.type === 'sale').reduce((acc, curr) => acc + curr.total, 0);
   const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.total, 0);
 
-  // Calculate top items
   const topItems = Object.entries(
     transactions
       .filter(t => t.type === 'sale')
@@ -181,6 +187,7 @@ const Dashboard = () => {
                 transactions={transactions} 
                 onDelete={handleDelete} 
                 onUpdate={handleUpdate}
+                onAddManual={() => setIsManualAddOpen(true)}
                 businessName={profile?.business_name || "My Business"} 
               />
             )}
@@ -213,6 +220,17 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Manual Add Dialog (Reusing Edit Dialog with empty state) */}
+      <EditTransactionDialog 
+        transaction={isManualAddOpen ? { id: 'new', user_id: profile?.id || '', item: '', qty: 1, total: 0, currency: 'NGN', type: 'sale', created_at: new Date().toISOString() } : null}
+        open={isManualAddOpen}
+        onOpenChange={setIsManualAddOpen}
+        onUpdate={(t) => {
+          handleManualAdd(t);
+          setIsManualAddOpen(false);
+        }}
+      />
     </div>
   );
 };
