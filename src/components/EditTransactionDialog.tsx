@@ -19,7 +19,6 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onUpdat
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<Transaction>>({});
 
-  // Sync state when the transaction prop changes or dialog opens
   useEffect(() => {
     if (transaction && open) {
       setFormData(transaction);
@@ -29,25 +28,51 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onUpdat
   const handleSave = async () => {
     if (!transaction) return;
     setLoading(true);
+    
     try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .update({
-          item: formData.item,
-          qty: formData.qty,
-          total: formData.total,
-          type: formData.type
-        })
-        .eq('id', transaction.id)
-        .select()
-        .single();
+      const isNew = transaction.id === 'new';
+      let result;
+
+      if (isNew) {
+        // Handle Manual Insert
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+
+        result = await supabase
+          .from('transactions')
+          .insert([{
+            user_id: user.id,
+            item: formData.item,
+            qty: formData.qty,
+            total: formData.total,
+            type: formData.type,
+            currency: 'NGN',
+            created_at: new Date().toISOString()
+          }])
+          .select()
+          .single();
+      } else {
+        // Handle Update
+        result = await supabase
+          .from('transactions')
+          .update({
+            item: formData.item,
+            qty: formData.qty,
+            total: formData.total,
+            type: formData.type
+          })
+          .eq('id', transaction.id)
+          .select()
+          .single();
+      }
       
-      if (error) throw error;
-      onUpdate(data);
-      showSuccess("Transaction updated!");
+      if (result.error) throw result.error;
+      
+      onUpdate(result.data);
+      showSuccess(isNew ? "Transaction added!" : "Transaction updated!");
       onOpenChange(false);
-    } catch (err) {
-      showError("Failed to update transaction.");
+    } catch (err: any) {
+      showError(err.message || "Failed to save transaction.");
     } finally {
       setLoading(false);
     }
@@ -57,7 +82,9 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onUpdat
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Edit Transaction</DialogTitle>
+          <DialogTitle className="text-2xl font-bold">
+            {transaction?.id === 'new' ? 'Add Transaction' : 'Edit Transaction'}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -105,7 +132,7 @@ export const EditTransactionDialog = ({ transaction, open, onOpenChange, onUpdat
             </Select>
           </div>
           <Button onClick={handleSave} disabled={loading} className="w-full bg-green-600 hover:bg-green-700 rounded-xl h-12">
-            {loading ? <Loader2 className="animate-spin h-4 w-4" /> : "Save Changes"}
+            {loading ? <Loader2 className="animate-spin h-4 w-4" /> : "Save Transaction"}
           </Button>
         </div>
       </DialogContent>
