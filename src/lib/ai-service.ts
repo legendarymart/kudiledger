@@ -1,8 +1,13 @@
 import OpenAI from 'openai';
-import axios from 'axios';
+
+const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+if (!apiKey) {
+  console.warn("OpenAI API Key is missing. Please add VITE_OPENAI_API_KEY to your environment variables for AI features to work.");
+}
 
 const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  apiKey: apiKey || 'placeholder-key',
   dangerouslyAllowBrowser: true
 });
 
@@ -11,6 +16,8 @@ const openai = new OpenAI({
  * Optimized for Nigerian English and Pidgin
  */
 export const transcribeAudio = async (audioFile: File) => {
+  if (!apiKey) throw new Error("OpenAI API Key is not configured.");
+  
   const transcription = await openai.audio.transcriptions.create({
     file: audioFile,
     model: "whisper-1",
@@ -24,6 +31,8 @@ export const transcribeAudio = async (audioFile: File) => {
  * Processes text to extract structured transaction data
  */
 export const processBusinessMessage = async (text: string) => {
+  if (!apiKey) throw new Error("OpenAI API Key is not configured.");
+
   const prompt = `
     You are a financial assistant for Nigerian traders. 
     Extract transaction data from the following message.
