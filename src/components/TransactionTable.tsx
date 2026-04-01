@@ -5,7 +5,7 @@ import { Trash2, FileDown, Search, Edit2, ReceiptText, Plus } from "lucide-react
 import { Transaction } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { EditTransactionDialog } from "./EditTransactionDialog";
-import jsPDF from "jsPDF";
+import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 interface Props {
