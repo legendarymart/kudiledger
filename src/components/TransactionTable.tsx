@@ -5,8 +5,17 @@ import { Trash2, FileDown, Search, Edit2, ReceiptText, Plus } from "lucide-react
 import { Transaction } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { EditTransactionDialog } from "./EditTransactionDialog";
+
+// ✅ FIXED: Lowercase "jspdf" is the correct package name for Vercel/Linux
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+
+// Standardize the autoTable type for TypeScript
+import { UserOptions } from "jspdf-autotable";
+
+interface jsPDFWithPlugin extends jsPDF {
+  autoTable: (options: UserOptions) => jsPDF;
+}
 
 interface Props {
   transactions: Transaction[];
@@ -28,7 +37,7 @@ export const TransactionTable = ({ transactions, onDelete, onUpdate, onAddManual
   });
 
   const exportFullReport = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF() as jsPDFWithPlugin;
     const date = new Date().toLocaleDateString();
     
     doc.setFontSize(20);
@@ -48,7 +57,7 @@ export const TransactionTable = ({ transactions, onDelete, onUpdate, onAddManual
       t.type.toUpperCase()
     ]);
 
-    (doc as any).autoTable({
+    doc.autoTable({
       head: [['Date', 'Item', 'Qty', 'Total', 'Type']],
       body: tableData,
       startY: 45,
