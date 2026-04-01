@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, TrendingUp, ShieldCheck, Smartphone, Mic, Zap, CheckCircle2 } from "lucide-react";
+import { MessageSquare, TrendingUp, ShieldCheck, Smartphone, Mic, Zap, CheckCircle2, Play } from "lucide-react";
+import DemoModal from "@/components/DemoModal";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -53,13 +54,17 @@ const Index = () => {
               >
                 Start Free Trial
               </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                className="h-14 px-10 text-lg rounded-xl border-2"
-              >
-                Watch Demo
-              </Button>
+              <DemoModal 
+                trigger={
+                  <Button 
+                    size="lg" 
+                    variant="outline"
+                    className="h-14 px-10 text-lg rounded-xl border-2 flex items-center gap-2"
+                  >
+                    <Play className="h-5 w-5 fill-current" /> Watch Demo
+                  </Button>
+                }
+              />
             </div>
           </div>
           <div className="relative">
