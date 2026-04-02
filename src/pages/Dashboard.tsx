@@ -88,8 +88,12 @@ const Dashboard = () => {
           ...extracted,
           created_at: new Date().toISOString()
         }]).select().single();
+        
         if (error) throw error;
-        await supabase.from('profiles').update({ trial_count: profile.trial_count + 1 }).eq('id', profile.id);
+
+        // Use the SQL RPC function to increment trial count
+        await supabase.rpc('increment_trial', { target_user_id: profile.id });
+        
         setTransactions([data, ...transactions]);
         setProfile({ ...profile, trial_count: profile.trial_count + 1 });
         showSuccess(`✅ Recorded: ${extracted.item}`);
@@ -221,9 +225,18 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* Manual Add Dialog (Reusing Edit Dialog with empty state) */}
       <EditTransactionDialog 
-        transaction={isManualAddOpen ? { id: 'new', user_id: profile?.id || '', item: '', qty: 1, total: 0, currency: 'NGN', type: 'sale', created_at: new Date().toISOString() } : null}
+        transaction={isManualAddOpen ? { 
+          id: 'new', 
+          user_id: profile?.id || '', 
+          item: '', 
+          qty: 1, 
+          unit_price: 0,
+          total: 0, 
+          currency: 'NGN', 
+          type: 'sale', 
+          created_at: new Date().toISOString() 
+        } : null}
         open={isManualAddOpen}
         onOpenChange={setIsManualAddOpen}
         onUpdate={(t) => {
