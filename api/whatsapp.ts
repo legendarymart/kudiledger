@@ -3,22 +3,33 @@ import { processBusinessMessage } from "../src/lib/ai-service";
 import axios from "axios";
 
 export default async function handler(req: any, res: any) {
-  // 1. Handle Webhook Verification (GET)
+  // 1. Handle Webhook Verification (GET Handshake)
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    if (mode === "subscribe" && token === process.env.VITE_WHATSAPP_VERIFY_TOKEN) {
+    // We check both VITE_WHATSAPP_VERIFY_TOKEN and WHATSAPP_VERIFY_TOKEN for compatibility
+    const verifyToken = process.env.VITE_WHATSAPP_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN;
+
+    if (mode === "subscribe" && token === verifyToken) {
+      console.log("Webhook Verified Successfully");
+      // Meta requires the challenge to be returned as a plain string
       return res.status(200).send(challenge);
     }
-    return res.status(403).json({ error: "Forbidden" });
+    
+    console.error("Webhook Verification Failed: Token mismatch or missing parameters");
+    return res.status(403).send("Forbidden");
   }
 
   // 2. Handle Incoming Messages (POST)
   if (req.method === "POST") {
     try {
-      const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+      const entry = req.body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const message = value?.messages?.[0];
+
       if (!message) return res.status(200).send("OK");
 
       const from = message.from;
@@ -54,8 +65,8 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).send("OK");
     } catch (error) {
-      console.error("Webhook Error:", error);
-      return res.status(200).send("OK"); // Always return 200 to Meta to avoid retries
+      console.error("Webhook Processing Error:", error);
+      return res.status(200).send("OK"); 
     }
   }
 
