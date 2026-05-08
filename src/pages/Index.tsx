@@ -214,7 +214,7 @@ const Index = () => {
             <Zap className="text-green-600 h-5 w-5" />
             <span className="font-bold text-gray-900">KudiLedger</span>
           </div>
-          <p>© 2024 KudiLedger. Built for the Nigerian Spirit.</p>
+          <p>© 2026 KudiLedger. Built for the Nigerian Spirit.</p>
         </div>
       </footer>
     </div>
