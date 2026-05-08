@@ -17,4 +17,3 @@
     "strictNullChecks": false,
     "types": ["vite/client", "node"]
   }
-}
