@@ -79,7 +79,8 @@ const Dashboard = () => {
     try {
       const extracted = await processBusinessMessage(text);
       if (extracted.type === 'profile_update') {
-        await supabase.from('profiles').update({ business_name: extracted.business_name }).eq('id', profile.id);
+        const { error } = await supabase.from('profiles').update({ business_name: extracted.business_name }).eq('id', profile.id);
+        if (error) throw error;
         setProfile({ ...profile, business_name: extracted.business_name });
         showSuccess(`Business name updated!`);
       } else {
@@ -91,15 +92,14 @@ const Dashboard = () => {
         
         if (error) throw error;
 
-        // Use the SQL RPC function to increment trial count
         await supabase.rpc('increment_trial', { target_user_id: profile.id });
         
         setTransactions([data, ...transactions]);
-        setProfile({ ...profile, trial_count: profile.trial_count + 1 });
+        setProfile({ ...profile, trial_count: (profile.trial_count || 0) + 1 });
         showSuccess(`✅ Recorded: ${extracted.item}`);
       }
-    } catch (err) {
-      showError("Failed to process message.");
+    } catch (err: any) {
+      showError(err.message || "Failed to process message.");
     } finally {
       setProcessing(false);
     }
@@ -114,12 +114,14 @@ const Dashboard = () => {
   };
 
   const handleUpdate = (updated: Transaction) => {
-    setTransactions(transactions.map(t => t.id === updated.id ? updated : t));
-  };
-
-  const handleManualAdd = (newTransaction: Transaction) => {
-    setTransactions([newTransaction, ...transactions]);
-    if (profile) setProfile({ ...profile, trial_count: profile.trial_count + 1 });
+    // If it's a new manual entry being added
+    const exists = transactions.find(t => t.id === updated.id);
+    if (!exists) {
+      setTransactions([updated, ...transactions]);
+      if (profile) setProfile({ ...profile, trial_count: (profile.trial_count || 0) + 1 });
+    } else {
+      setTransactions(transactions.map(t => t.id === updated.id ? updated : t));
+    }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-green-600" /></div>;
@@ -231,7 +233,6 @@ const Dashboard = () => {
           user_id: profile?.id || '', 
           item: '', 
           qty: 1, 
-          unit_price: 0,
           total: 0, 
           currency: 'NGN', 
           type: 'sale', 
@@ -240,7 +241,7 @@ const Dashboard = () => {
         open={isManualAddOpen}
         onOpenChange={setIsManualAddOpen}
         onUpdate={(t) => {
-          handleManualAdd(t);
+          handleUpdate(t);
           setIsManualAddOpen(false);
         }}
       />
