@@ -231,7 +231,6 @@ const Dashboard = () => {
           user_id: profile?.id || '', 
           item: '', 
           qty: 1, 
-          unit_price: 0,
           total: 0, 
           currency: 'NGN', 
           type: 'sale', 
