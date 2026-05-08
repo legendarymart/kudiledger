@@ -1,5 +1,5 @@
-import { supabase } from "../src/lib/supabase";
-import { processBusinessMessage } from "../src/lib/ai-service";
+import { supabase } from "../src/lib/supabase.js";
+import { processBusinessMessage } from "../src/lib/ai-service.js";
 import axios from "axios";
 
 export default async function handler(req: any, res: any) {
