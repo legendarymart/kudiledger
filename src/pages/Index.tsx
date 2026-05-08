@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, TrendingUp, ShieldCheck, Smartphone, Mic, Zap, CheckCircle2, Play } from "lucide-react";
+import { MessageSquare, TrendingUp, ShieldCheck, Smartphone, Mic, Zap, CheckCircle2, Play, LayoutDashboard, FileText } from "lucide-react";
 import DemoModal from "@/components/DemoModal";
+import Testimonials from "@/components/Testimonials";
+import UsageStats from "@/components/UsageStats";
+import VoiceNoteExamples from "@/components/VoiceNoteExamples";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -19,7 +22,7 @@ const Index = () => {
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
           <a href="#features" className="hover:text-green-600 transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-green-600 transition-colors">How it works</a>
-          <a href="#pricing" className="hover:text-green-600 transition-colors">Pricing</a>
+          <a href="#testimonials" className="hover:text-green-600 transition-colors">Success Stories</a>
         </div>
         <Button 
           onClick={() => navigate("/auth")}
@@ -99,40 +102,81 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Features */}
-      <section id="features" className="py-24 bg-gray-50 px-6">
+      {/* Usage Stats Section */}
+      <section className="py-12 px-6 border-y border-gray-50">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-            <h2 className="text-4xl font-bold text-gray-900">Built for the Nigerian Market</h2>
-            <p className="text-lg text-gray-600">We understand how you do business. No complex forms, just simple conversations.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <Mic className="h-8 w-8 text-blue-600" />,
-                title: "Voice Notes Support",
-                desc: "Too busy to type? Send a voice note in English or Pidgin. Our AI understands perfectly."
-              },
-              {
-                icon: <TrendingUp className="h-8 w-8 text-green-600" />,
-                title: "Real-time Profit Tracking",
-                desc: "See exactly how much you're making. No more guessing at the end of the month."
-              },
-              {
-                icon: <ShieldCheck className="h-8 w-8 text-purple-600" />,
-                title: "Professional Reports",
-                desc: "Generate PDF receipts and monthly financial statements with one click."
-              }
-            ].map((feature, i) => (
-              <div key={i} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                <div className="mb-6 bg-gray-50 w-16 h-16 rounded-2xl flex items-center justify-center">
-                  {feature.icon}
+          <UsageStats />
+        </div>
+      </section>
+
+      {/* Dashboard Preview Section */}
+      <section className="py-24 px-6 bg-slate-900 text-white overflow-hidden">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-8">
+            <h2 className="text-4xl font-bold leading-tight">Your Business at a Glance</h2>
+            <p className="text-slate-400 text-lg">
+              While you chat on WhatsApp, we build a professional dashboard for you. Track profits, manage inventory, and download reports.
+            </p>
+            <div className="space-y-4">
+              {[
+                { icon: <TrendingUp className="text-green-400" />, text: "Automatic Profit & Loss Charts" },
+                { icon: <FileText className="text-blue-400" />, text: "Instant PDF Receipts for Customers" },
+                { icon: <LayoutDashboard className="text-purple-400" />, text: "Clean, Simple Business Dashboard" }
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 text-slate-200">
+                  <div className="bg-white/10 p-2 rounded-lg">{item.icon}</div>
+                  <span className="font-medium">{item.text}</span>
                 </div>
-                <h3 className="text-xl font-bold mb-4">{feature.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{feature.desc}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+          <div className="relative">
+            <div className="absolute -inset-10 bg-green-500/20 rounded-full blur-[100px]"></div>
+            <div className="relative bg-white rounded-2xl shadow-2xl p-2 border border-slate-700">
+              <img 
+                src="https://images.unsplash.com/photo-1551288049-bbbda536339a?w=800&h=500&fit=crop" 
+                alt="Dashboard Preview" 
+                className="rounded-xl w-full grayscale-[0.2] hover:grayscale-0 transition-all duration-500"
+              />
+              <div className="absolute -bottom-6 -right-6 bg-green-600 p-6 rounded-2xl shadow-xl hidden md:block">
+                <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Total Sales Today</p>
+                <p className="text-3xl font-black">₦142,500</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Voice Note Examples Section */}
+      <section className="py-24 px-6 bg-gray-50">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+          <div className="order-2 md:order-1">
+            <VoiceNoteExamples />
+          </div>
+          <div className="space-y-6 order-1 md:order-2">
+            <h2 className="text-4xl font-bold text-gray-900">Speak, Don't Type.</h2>
+            <p className="text-lg text-gray-600">
+              Our AI is trained on Nigerian accents and Pidgin English. Just send a voice note while you're attending to customers, and we'll handle the math.
+            </p>
+            <ul className="space-y-3">
+              {['Understands Pidgin English', 'Extracts Qty & Price automatically', 'Works even with background noise'].map((text, i) => (
+                <li key={i} className="flex items-center gap-2 text-gray-700 font-medium">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" /> {text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-24 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+            <h2 className="text-4xl font-bold text-gray-900">Trusted by Smart Entrepreneurs</h2>
+            <p className="text-lg text-gray-600">Join thousands of traders who have moved from paper notebooks to KudiLedger.</p>
+          </div>
+          <Testimonials />
         </div>
       </section>
 
