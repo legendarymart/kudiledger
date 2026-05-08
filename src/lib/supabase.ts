@@ -1,22 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Support both Vite (import.meta.env) and Node/Vercel (process.env)
-const supabaseUrl = 
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) || 
-  import.meta.env.VITE_SUPABASE_URL || 
-  'https://scukahafvtdfidkeeksi.supabase.co';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const supabaseAnonKey = 
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) || 
-  import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseAnonKey) {
-  console.error("Supabase Anon Key is missing.");
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn("Supabase credentials missing. Please ensure the integration is complete.");
 }
 
 export const supabase = createClient(
-  supabaseUrl, 
-  supabaseAnonKey || 'placeholder-key'
+  supabaseUrl || '', 
+  supabaseAnonKey || ''
 );
 
 export type Profile = {
@@ -33,7 +26,6 @@ export type Transaction = {
   user_id: string;
   item: string;
   qty: number;
-  unit_price: number;
   total: number;
   currency: string;
   type: 'sale' | 'expense';

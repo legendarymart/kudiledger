@@ -1,50 +1,26 @@
--- 1. CLEAN SLATE: Remove existing tables and functions to avoid conflicts
-DROP TABLE IF EXISTS transactions;
-DROP TABLE IF EXISTS profiles;
-DROP FUNCTION IF EXISTS increment_trial;
-
--- 2. CREATE PROFILES TABLE
--- This stores business settings and subscription status
-CREATE TABLE profiles (
+-- 1. Create profiles table
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  phone_number TEXT UNIQUE NOT NULL,
+  phone_number TEXT UNIQUE,
   business_name TEXT,
-  trial_count INT DEFAULT 0,
-  is_subscribed BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  trial_count INTEGER DEFAULT 0,
+  is_subscribed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 3. CREATE TRANSACTIONS TABLE
--- This stores every sale and expense
-CREATE TABLE transactions (
+-- 2. Create transactions table
+CREATE TABLE IF NOT EXISTS transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   item TEXT NOT NULL,
-  qty INT DEFAULT 1,
-  unit_price NUMERIC DEFAULT 0,
+  qty INTEGER DEFAULT 1,
   total NUMERIC NOT NULL,
   currency TEXT DEFAULT 'NGN',
   type TEXT CHECK (type IN ('sale', 'expense')),
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 4. ENABLE SECURITY (RLS)
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-
--- 5. CREATE SECURITY POLICIES
--- Profiles: Users can only see and edit their own profile
-CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-
--- Transactions: Users can only see and manage their own transactions
-CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own transactions" ON transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own transactions" ON transactions FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own transactions" ON transactions FOR DELETE USING (auth.uid() = user_id);
-
--- 6. CREATE TRIAL INCREMENT FUNCTION
--- This is called by the app to track free usage
+-- 3. Function to increment trial count
 CREATE OR REPLACE FUNCTION increment_trial(target_user_id UUID)
 RETURNS VOID AS $$
 BEGIN
@@ -54,8 +30,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 7. AUTOMATIC PROFILE CREATION
--- This trigger creates a profile automatically when a user signs up via Auth
+-- 4. Enable Row Level Security (RLS)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+-- 5. Create Security Policies
+-- Profiles: Users can only see and edit their own profile
+CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Transactions: Users can only see and edit their own transactions
+CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own transactions" ON transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own transactions" ON transactions FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own transactions" ON transactions FOR DELETE USING (auth.uid() = user_id);
+
+-- 6. Trigger to create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
