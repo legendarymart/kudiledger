@@ -1,17 +1,16 @@
 import OpenAI from 'openai';
 
+// Using the provided key as a fallback if the environment variable is not set
 const apiKey = 
-  (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) || 
-  import.meta.env.VITE_OPENAI_API_KEY;
+  import.meta.env.VITE_OPENAI_API_KEY || 
+  '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';
 
 const openai = new OpenAI({
-  apiKey: apiKey || 'placeholder-key',
+  apiKey: apiKey,
   dangerouslyAllowBrowser: true
 });
 
 export const transcribeAudio = async (audioFile: File) => {
-  if (!apiKey || apiKey === 'placeholder-key') throw new Error("OpenAI API Key is not configured.");
-  
   const transcription = await openai.audio.transcriptions.create({
     file: audioFile,
     model: "whisper-1",
@@ -22,8 +21,6 @@ export const transcribeAudio = async (audioFile: File) => {
 };
 
 export const processBusinessMessage = async (text: string) => {
-  if (!apiKey || apiKey === 'placeholder-key') throw new Error("OpenAI API Key is not configured.");
-
   const prompt = `
     Extract transaction data from: "${text}"
     Rules: "5k" = 5000. "I sell" = sale, "I buy" = expense. Default NGN.
