@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -5,9 +7,7 @@ import { Trash2, FileDown, Search, Edit2, ReceiptText, Plus } from "lucide-react
 import { Transaction } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { EditTransactionDialog } from "./EditTransactionDialog";
-
-// ✅ FIXED: Lowercase "jspdf" is the correct package name for Vercel/Linux
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 
 // Standardize the autoTable type for TypeScript
@@ -71,7 +71,7 @@ export const TransactionTable = ({ transactions, onDelete, onUpdate, onAddManual
     const doc = new jsPDF({
       unit: "mm",
       format: [80, 150]
-    });
+    }) as jsPDFWithPlugin;
 
     doc.setFontSize(16);
     doc.setTextColor(22, 163, 74);
