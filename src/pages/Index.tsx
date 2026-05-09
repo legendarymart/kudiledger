@@ -134,7 +134,7 @@ const Index = () => {
             <div className="absolute -inset-10 bg-green-500/20 rounded-full blur-[100px]"></div>
             <div className="relative bg-white rounded-2xl shadow-2xl p-2 border border-slate-700">
               <img 
-                src="https://images.unsplash.com/photo-1551288049-bbbda536339a?w=800&h=500&fit=crop" 
+                src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=500&fit=crop" 
                 alt="Dashboard Preview" 
                 className="rounded-xl w-full grayscale-[0.2] hover:grayscale-0 transition-all duration-500"
               />
