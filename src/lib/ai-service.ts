@@ -3,7 +3,6 @@ import OpenAI from "openai";
 // Ensure you have VITE_OPENAI_API_KEY in your .env file
 const client = new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
 });
 
 export async function generateAIResponse(prompt: string): Promise<string> {
