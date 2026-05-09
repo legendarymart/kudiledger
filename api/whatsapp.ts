@@ -1,4 +1,4 @@
-// api/whatsapp.ts
+// api/whatsapp.js
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import supabase from "../src/lib/supabase.js";
 import { generateAIResponse } from "../src/lib/ai-service.js";
