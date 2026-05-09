@@ -1,36 +1,21 @@
-import OpenAI from 'openai';
+// src/lib/ai-service.ts
+import OpenAI from "openai";
 
-// The API key is now retrieved exclusively from environment variables
-const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-
-const openai = new OpenAI({
-  apiKey: apiKey,
-  dangerouslyAllowBrowser: true
+// Ensure you have VITE_OPENAI_API_KEY in your .env file
+const client = new OpenAI({
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
 });
 
-export const transcribeAudio = async (audioFile: File) => {
-  const transcription = await openai.audio.transcriptions.create({
-    file: audioFile,
-    model: "whisper-1",
-    prompt: "This is a Nigerian trader speaking in English or Pidgin about sales and expenses.",
-    language: "en"
-  });
-  return transcription.text;
-};
+export async function generateAIResponse(prompt: string): Promise<string> {
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    });
 
-export const processBusinessMessage = async (text: string) => {
-  const prompt = `
-    Extract transaction data from: "${text}"
-    Rules: "5k" = 5000. "I sell" = sale, "I buy" = expense. Default NGN.
-    If user says "My business name is [Name]", type: "profile_update".
-    Return ONLY JSON: {item, qty, total, currency, type, business_name}
-  `;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
-    response_format: { type: "json_object" }
-  });
-
-  return JSON.parse(response.choices[0].message.content || '{}');
-};
+    return response.choices[0]?.message?.content ?? "No response generated.";
+  } catch (err: any) {
+    console.error("AI Service Error:", err);
+    return "Sorry, I couldn’t generate a response.";
+  }
+}
