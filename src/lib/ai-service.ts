@@ -1,9 +1,7 @@
 import OpenAI from 'openai';
 
-// Using the provided key as a fallback if the environment variable is not set
-const apiKey = 
-  import.meta.env.VITE_OPENAI_API_KEY || 
-  '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';
+// The API key is now retrieved exclusively from environment variables
+const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
 const openai = new OpenAI({
   apiKey: apiKey,
